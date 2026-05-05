@@ -30,8 +30,10 @@ SenticDiT/
 │   └── inference.py          # Generation and vocoder logic
 ├── main.py                   # Entry point for training
 ├── demo_inference.py         # Script to run generations
+├── meld_eda.py               # Script to run eda on dataset
+├── loss_plots.py             # Script to generate loss plot based on logs
 ├── Report.pdf
-├── Papers.zip                 # The Research papers that i have refered
+├── Papers.zip                # The Research papers that i have refered
 ├── AudioDiT-final.ipynb      # Actual implementation file that is run on Kaggle
 ├── requirements.txt          # Python dependencies
 └── README.md
@@ -40,7 +42,9 @@ SenticDiT/
 ## Data
 Please download/view the dataset from Kaggle and place them in the folder called data
 MELD Dataset - https://www.kaggle.com/datasets/zaber666/meld-dataset
+
 MELD Audio - https://www.kaggle.com/datasets/aryansharma26/meld-audio
+
 Checkpoints - https://www.kaggle.com/datasets/aryansharma26/checkpoints
 
 ## Installation
