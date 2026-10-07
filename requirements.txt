@@ -1,14 +1,31 @@
+# torch / torchaudio: install the build that matches your CUDA (Kaggle images already ship them).
+# Do NOT install torchao — peft's LoRA dispatcher raises on Kaggle's old torchao build.
+# The LongCat-AudioDiT model code (`audiodit`) is not on PyPI; senticdit.setup_env clones it.
+torch>=2.0.0
+torchaudio>=2.0.0
+transformers>=5.3.0
+peft>=0.11.0
+accelerate>=0.30.0
+safetensors>=0.4.0
+huggingface_hub
+sentencepiece
+einops>=0.8.0
 numpy
 pandas
 scipy
-librosa>=0.10.1
-soundfile>=0.12.1
-torch>=2.0.0
-diffusers>=0.27.0
-transformers>=5.3.0
-peft>=0.10.0
-accelerate>=0.29.0
-bitsandbytes>=0.43.0
-einops>=0.7.0
-pymcd>=0.1.3
+librosa>=0.10.0
+soundfile>=0.12.0
 matplotlib
+
+# Evaluation
+pymcd
+fastdtw
+pyworld
+setuptools        # pyworld imports pkg_resources
+jiwer
+# funasr          # emotion2vec; installed lazily at runtime by senticdit.evaluation.ser
+
+# scripts/meld_eda.py
+seaborn
+wordcloud
+tqdm
