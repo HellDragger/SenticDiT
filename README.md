@@ -1,6 +1,6 @@
 # SenticDiT
 
-Code for *Revisiting Emotional TTS Fine-Tuning on MELD: What Actually Matters*.
+Code for *When Automatic Metrics Mislead: Auditing the Evaluation of LoRA Fine-Tuning for Emotional Speech Synthesis on MELD*.
 
 SenticDiT fine-tunes [`meituan-longcat/LongCat-AudioDiT-1B`](https://huggingface.co/meituan-longcat/LongCat-AudioDiT-1B)
 — a conditional-flow-matching diffusion transformer over a continuous VAE latent — on MELD with
@@ -12,8 +12,8 @@ experiment, and same-speaker MCD on a second corpus (CREMA-D) via voice cloning.
 ## Links
 
 - **Paper (arXiv preprint):** [arXiv:XXXX.XXXXX](https://arxiv.org/abs/XXXX.XXXXX) <!-- TODO: replace with the arXiv ID -->
-- **MELD dataset:** [MELD](MELD_DATASET_URL) <!-- TODO: replace with the MELD link used -->
-- **CREMA-D dataset:** [CREMA-D](CREMA_D_DATASET_URL) <!-- TODO: replace with the CREMA-D link used -->
+- **MELD dataset:** [MELD](https://www.kaggle.com/datasets/zaber666/meld-dataset) <!-- TODO: replace with the MELD link used -->
+- **CREMA-D dataset:** [CREMA-D](https://www.kaggle.com/datasets/ejlok1/cremad) <!-- TODO: replace with the CREMA-D link used -->
 
 ## Experiments
 
@@ -127,7 +127,6 @@ SenticDiT/
 │   ├── demo_inference.py      # synthesise one sentence
 │   └── meld_eda.py            # dataset EDA figures
 ├── plots/                     # EDA figures and figures from the earlier v1 pipeline
-├── Report.pdf
 ├── Papers.zip                 # referenced papers
 └── requirements.txt
 ```
