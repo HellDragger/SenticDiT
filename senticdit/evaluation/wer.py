@@ -19,7 +19,7 @@ class WhisperWER:
     def __init__(self, model_id):
         from transformers import pipeline
         self.asr = pipeline("automatic-speech-recognition", model=model_id,
-                            torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+                            dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
                             device=0 if torch.cuda.is_available() else -1)
 
     def normalize(self, t):

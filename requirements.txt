@@ -23,7 +23,11 @@ fastdtw
 pyworld
 setuptools        # pyworld imports pkg_resources
 jiwer
-# funasr          # emotion2vec; installed lazily at runtime by senticdit.evaluation.ser
+# Installed at runtime by the experiments that need them (pip, check=False):
+# funasr                 # emotion2vec (v5, configd, addon)
+# torchmetrics>=1.7      # DNSMOS / NISQA (addon); no [audio] extra — it pulls pesq
+# onnxruntime, requests  # DNSMOS (addon)
+# speechbrain            # ECAPA-TDNN speaker embeddings (addon, crossclone)
 
 # scripts/meld_eda.py
 seaborn

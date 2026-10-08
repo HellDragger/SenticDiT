@@ -44,3 +44,24 @@ def show_audio(wav, sr):
 
 def section(title: str):
     print("\n" + "=" * 78 + f"\n{title}\n" + "=" * 78)
+
+
+def zip_outputs(archive_base, root, include=None):
+    """Zip `include` (paths relative to root; files or folders) — or all of root — into
+    <archive_base>.zip, so a Kaggle run's results download as one file."""
+    import shutil
+    import zipfile
+    from pathlib import Path
+
+    root = Path(root)
+    archive = Path(f"{archive_base}.zip")
+    if include is None:
+        shutil.make_archive(str(archive_base), "zip", root)
+    else:
+        with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as zf:
+            for rel in include:
+                p = root / rel
+                files = [p] if p.is_file() else sorted(f for f in p.rglob("*") if f.is_file())
+                for f in files:
+                    zf.write(f, f.relative_to(root))
+    print(f"Zipped outputs -> {archive}")
