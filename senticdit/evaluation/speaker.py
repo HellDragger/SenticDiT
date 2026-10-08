@@ -81,3 +81,38 @@ def speaker_consistency(ctx):
     except Exception as e:
         print(f"Speaker-consistency check skipped ({e}).")
     return spk_results
+
+
+# ---------------------------------------------------------------------------------------------
+# Embedding helpers for the CREMA-D experiments (16 kHz float32 arrays in, unit vectors out)
+# ---------------------------------------------------------------------------------------------
+
+def wavlm_embeddings(arrays16, model_id, device):
+    from transformers import AutoFeatureExtractor, WavLMForXVector
+    fe = AutoFeatureExtractor.from_pretrained(model_id)
+    m = WavLMForXVector.from_pretrained(model_id).to(device).eval()
+    with torch.no_grad():
+        return np.stack([torch.nn.functional.normalize(
+            m(**fe(w, sampling_rate=16000, return_tensors="pt").to(device)).embeddings, dim=-1)
+            .squeeze(0).cpu().numpy() for w in arrays16])
+
+
+def load_ecapa(device):
+    """SpeechBrain ECAPA-TDNN; returns an embedding function for one 16 kHz array."""
+    from speechbrain.inference.speaker import EncoderClassifier
+    m = EncoderClassifier.from_hparams(source="speechbrain/spkrec-ecapa-voxceleb",
+                                       savedir="/tmp/ecapa", run_opts={"device": str(device)})
+    return lambda w: m.encode_batch(torch.from_numpy(w).unsqueeze(0).to(device)).squeeze().cpu().numpy()
+
+
+def load_wav2vec2_xvector(device, model_id="anton-l/wav2vec2-base-superb-sv"):
+    from transformers import AutoFeatureExtractor, Wav2Vec2ForXVector
+    fe = AutoFeatureExtractor.from_pretrained(model_id)
+    xm = Wav2Vec2ForXVector.from_pretrained(model_id).to(device).eval()
+    return lambda w: xm(**fe(w, sampling_rate=16000, return_tensors="pt").to(device)).embeddings.squeeze(0).cpu().numpy()
+
+
+def embed_normalized(embed_fn, arrays16):
+    with torch.no_grad():
+        E = np.stack([embed_fn(w) for w in arrays16])
+    return E / np.linalg.norm(E, axis=1, keepdims=True)

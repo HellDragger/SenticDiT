@@ -235,32 +235,44 @@ def ser_evaluation(ctx):
 # emotion2vec — a second SER model
 # ---------------------------------------------------------------------------------------------
 
+class Emotion2Vec:
+    """emotion2vec via FunASR; `predict` returns a MELD emotion label or None. Its label set
+    includes *other* and *unknown*, so the argmax is taken over the seven MELD classes only."""
+
+    def __init__(self, model_id, tmp_path="/tmp/_e2v.wav"):
+        from funasr import AutoModel as FunASRModel
+        self.model = FunASRModel(model=model_id, hub="hf", disable_update=True)
+        self.tmp_path = tmp_path
+
+    def predict(self, wav, sr):
+        w = librosa.resample(np.asarray(wav, dtype=np.float32), orig_sr=sr, target_sr=16000) \
+            if sr != 16000 else np.asarray(wav, dtype=np.float32)
+        sf.write(self.tmp_path, w, 16000)
+        res = self.model.generate(self.tmp_path, granularity="utterance", extract_embedding=False)[0]
+        best, best_s = None, -1.0
+        for lab, sc in zip(res["labels"], res["scores"]):
+            eng = lab.split("/")[-1].strip().lower()
+            if eng in E2V_MAP and sc > best_s:
+                best, best_s = E2V_MAP[eng], float(sc)
+        return best
+
+
+def install_funasr():
+    subprocess.run([sys.executable, "-m", "pip", "install", "-q", "funasr"], check=False)
+
+
 def emotion2vec_evaluation(ctx):
     """With one classifier the paper can only say *that checkpoint* is biased on synthetic
     speech. If emotion2vec (different architecture, different data) shows the same pattern, the
-    finding is about SER-based evaluation in general. Predictions are restricted to the seven
-    MELD classes by taking the argmax over those seven scores."""
+    finding is about SER-based evaluation in general."""
     cfg = ctx.cfg
     e2v_stats = {}
     if not cfg.run_emotion2vec:
         return e2v_stats
     try:
-        subprocess.run([sys.executable, "-m", "pip", "install", "-q", "funasr"], check=False)
-        from funasr import AutoModel as FunASRModel
-        e2v = FunASRModel(model=cfg.emotion2vec_model_id, hub="hf", disable_update=True)
-        _tmp = "/tmp/_e2v.wav"
-
-        def e2v_predict(wav, sr):
-            w = librosa.resample(np.asarray(wav, dtype=np.float32), orig_sr=sr, target_sr=16000) \
-                if sr != 16000 else np.asarray(wav, dtype=np.float32)
-            sf.write(_tmp, w, 16000)
-            res = e2v.generate(_tmp, granularity="utterance", extract_embedding=False)[0]
-            best, best_s = None, -1.0
-            for lab, sc in zip(res["labels"], res["scores"]):
-                eng = lab.split("/")[-1].strip().lower()
-                if eng in E2V_MAP and sc > best_s:
-                    best, best_s = E2V_MAP[eng], float(sc)
-            return best
+        install_funasr()
+        e2v = Emotion2Vec(cfg.emotion2vec_model_id)
+        e2v_predict = e2v.predict
 
         def e2v_run(items, title):
             t, p = [], []

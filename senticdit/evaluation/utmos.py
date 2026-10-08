@@ -22,7 +22,11 @@ class UTMOSScorer:
     @torch.no_grad()
     def __call__(self, wav, sr):
         w = librosa.resample(wav, orig_sr=sr, target_sr=16000) if sr != 16000 else wav
-        t = torch.from_numpy(np.asarray(w, dtype=np.float32)).unsqueeze(0).to(self.device)
+        return self.score16(w)
+
+    @torch.no_grad()
+    def score16(self, w16):
+        t = torch.from_numpy(np.asarray(w16, dtype=np.float32)).unsqueeze(0).to(self.device)
         return float(self.model(t, 16000).item())
 
 

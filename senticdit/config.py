@@ -1,8 +1,8 @@
-"""Run configuration for SenticDiT v5.
+"""Run configuration for every SenticDiT experiment (v5, configd, addon, crossclone).
 
-Every knob the Kaggle notebook can set lives here. The notebook constructs a `Config`, overrides
-what it needs, and hands it to `senticdit.pipeline.SenticDiTRun`. Defaults reproduce the v5
-notebook exactly.
+Every knob the Kaggle notebook can set lives here. The notebook writes its settings to a JSON
+file per experiment and `scripts/run_experiment.py` builds a `Config` from it. Defaults
+reproduce the original Kaggle notebooks.
 """
 from dataclasses import dataclass, field
 from typing import List, Optional
@@ -155,14 +155,33 @@ class Config:
     speaker_model_id: str = "microsoft/wavlm-base-plus-sv"
     verify_weight_loading: bool = True
 
-    # --- v5: Config D — isolating data quantity ------------------------------------------------
+    # --- Config D — isolating data quantity (experiment "configd") ------------------------------
     # Both arms share rank, targets, class-balanced sampling, step budget, LR and evaluation noise
-    # draws; ONLY the training pool differs (MELD train split vs pooled train+dev+test).
-    run_config_d: bool = True
+    # draws; ONLY the training pool differs (MELD train split vs pooled train+dev+test). At 500
+    # steps x 16 samples neither arm would complete one epoch, so the budget is 2000 steps.
+    # Runs as its own experiment: inside the v5 run it ran out of GPU memory because UTMOS,
+    # Whisper and the SER model were still resident next to AudioDiT.
     config_d_max_steps: int = 2000         # ~3.3 epochs of train-only, ~2.4 of pooled
     config_d_rank: int = 16
-    config_d_include_adaln: bool = False
+    config_d_include_adaln: bool = True    # attention + shared AdaLN MLP
     config_d_ckpt_every: int = 500
+    configd_resume_root: Optional[str] = None   # folder holding configd_<arm>/step_* from an
+                                                # interrupted session; None = this session's dir
+    meld_register_per_emotion: int = 40    # training clips per emotion for the MELD F0 register check
+
+    # --- CREMA-D experiments ("addon", "crossclone") --------------------------------------------
+    cremad_dir: Optional[str] = None       # None = search /kaggle/input for CREMA-D's AudioWAV folder
+    cremad_actors: int = 24                # actors sampled; up to 6 target clips each (one per emotion)
+    # Fine-tuned adapter scored by the add-on's Part B (the main run's final checkpoint).
+    adapter_dir: Optional[str] = ("/kaggle/input/datasets/aryansharma26/senticdit-r-16/"
+                                  "r16_attn_adaln/step_016860/lora_adapter")
+    addon_run_part_a: bool = True          # CREMA-D: cloned-voice MCD next to different-speaker MCD
+    addon_run_part_b: bool = True          # MELD: second-opinion MOS / ASR / speaker / SER models
+    meld_anchor_per_emotion: int = 10      # real-MELD anchor clips (>= 2 s) per emotion in Part B
+    v5_dir: Optional[str] = None           # optional: folder with v5 health_metrics_final.csv for a
+                                           # determinism check of the regenerated fine-tuned clips
+
+    zip_results: bool = True               # write <experiment>_results.zip next to output_dir
 
     # --- Evaluation ------------------------------------------------------------------------
     ser_model_id: str = "r-f/wav2vec-english-speech-emotion-recognition"

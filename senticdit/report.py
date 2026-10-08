@@ -19,7 +19,7 @@ Outputs -> paper sections:
 | wer_per_utterance.csv                   | intelligibility: fine-tuned, zero-shot, real MELD |
 | ser_two_classifier_comparison.csv       | the generalised SER-bias table (2 classifiers x 3 audio sources) |
 | speaker_consistency.csv                 | identity stability before and after fine-tuning |
-| configd_comparison.csv / configd_per_utterance.csv | the single-factor data-quantity result |
+| configd_comparison.csv / configd_per_utterance.csv | the single-factor data-quantity result (configd experiment) |
 | cfg_strength_sweep.csv                  | report as a null; two runs gave anti-correlated rankings |
 """
 import os
@@ -136,14 +136,6 @@ def paper_results_table(ctx) -> pd.DataFrame:
         else:
             add("speaker", f"self-consistency {key}", round(v[0], 4), None, None, f"sd {v[1]:.3f}")
 
-    configd_cmp = ctx.configd_cmp
-    if configd_cmp is not None and len(configd_cmp):
-        for _, r in configd_cmp.iterrows():
-            add("config_d", f"pooled - train-only: {r['metric']}", round(r["diff"], 4),
-                (round(r["ci_low"], 4), round(r["ci_high"], 4)), r["n"],
-                ("SIGNIFICANT" if r["significant"] else "null")
-                + (f"; MDE {r['mde']:.3g}" if "mde" in r and pd.notna(r.get("mde")) else ""))
-
     paper_df = pd.DataFrame(paper_rows)
     paper_df.to_csv(f"{cfg.output_dir}/paper_results_table.csv", index=False)
     paper_df["run_tag"] = cfg.run_tag
@@ -158,7 +150,7 @@ def paper_results_table(ctx) -> pd.DataFrame:
     print("     MOS, ~15 raters, fine-tuned vs zero-shot vs real MELD anchors. This is the only")
     print("     direct evidence about expressiveness, which is the paper's actual subject.")
     print("  2. Re-run the ablations on the corrected metrics in a second session")
-    print("     (skip_ablations=False, run_config_d=False), bumping run_tag and eval_seed.")
+    print("     (skip_ablations=False), bumping run_tag and eval_seed.")
     print("=" * 78)
     return paper_df
 

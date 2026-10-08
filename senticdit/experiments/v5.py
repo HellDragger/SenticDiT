@@ -1,89 +1,41 @@
-"""End-to-end SenticDiT v5 run.
+"""Experiment "v5": the main SenticDiT run (senticdit_v5.ipynb).
 
-`SenticDiTRun` holds the state shared between stages (model, data splits, evaluation frames) and
-exposes each stage as a method, in the order the paper's results depend on. `run_all()` runs them
-all; individual stages can be called one by one from a notebook when debugging.
+Setup -> zero-shot control -> ablations -> main LoRA run (resumable) -> CFG sweep -> full held-out
+evaluation -> SER (+ real-audio control) -> paraphrase generalisation -> demos -> MCD -> UTMOS and
+the pitch-drift mechanism -> Whisper WER -> emotion2vec -> speaker consistency -> paper table.
 
-Expected runtime on 2x T4 (rates from the v3 logs): setup + loading guard ~8 min, zero-shot
-~11 min, main run ~0 if the resume checkpoint is complete (~16 h from scratch), CFG sweep ~16 min,
-final eval + SER + paraphrase ~31 min, MCD ~25 min, UTMOS/mechanism/WER/emotion2vec/speaker
-~22 min, Config D ~4.3 h. With Config D: ~6.5-7.5 h, which fits one 12 h Kaggle session.
-Re-running the ablations (skip_ablations=False) adds ~5 h — use a second session.
+Config D, which the original notebook ran last, is the separate "configd" experiment: inside this
+run it ran out of GPU memory because UTMOS, Whisper and the SER model were still resident.
+
+Expected runtime on 2x T4: ~2 h with the ablations skipped and a complete resume checkpoint
+(~16 h to train the main run from scratch; re-running the ablations adds ~5 h).
 """
-import warnings
-import logging
 from pathlib import Path
 
-import torch
-
-from . import ablations, report
-from .config import Config
-from .config_d import run_config_d
-from .data import EmotionalSpeechDataset, add_class_weights, fit_duration_model, load_meld, \
-    make_loader, split_train_holdout
-from .evaluation import health, mcd, ser, speaker, utmos, wer
-from .generation import generate_speech
-from .model import attach_lora, load_pretrained, summarize_lora_targets, verify_weight_loading
-from .training import plot_loss_curve, train_lora
-from .utils import get_device, section, set_global_seed, show_audio
+from .. import ablations, report
+from ..context import RunContext
+from ..data import make_loader
+from ..evaluation import health, mcd, ser, speaker, utmos, wer
+from ..generation import generate_speech
+from ..model import attach_lora, summarize_lora_targets
+from ..training import plot_loss_curve, train_lora
+from ..utils import section, show_audio
 
 
-class SenticDiTRun:
-    def __init__(self, cfg: Config):
-        warnings.filterwarnings("ignore")
-        logging.basicConfig(level=logging.WARNING)
-
-        self.cfg = cfg
-        self.device = get_device()
-        set_global_seed(cfg.seed)
-        Path(cfg.output_dir).mkdir(parents=True, exist_ok=True)
-        print("Torch:", torch.__version__, "| CUDA available:", torch.cuda.is_available())
-        print("GPU count:", torch.cuda.device_count())
-        print("Output dir:", cfg.output_dir)
-
-        # data
-        self.train_df = self.holdout_df = self.train_dataset = None
-        # model
-        self.model = self.tokenizer = self.original_state = None
+class V5Run(RunContext):
+    def __init__(self, cfg):
+        super().__init__(cfg)
         self.baseline_wav = None
-        # selections
         self.best_rank = self.best_include_adaln = None
         self.best_cfg_strength = float(cfg.cfg_strength)
         self.losses = []
-        # evaluation state
         self.zeroshot_df = self.final_eval_df = None
         self.ser, self.ser_stats, self.ser_accuracy = None, {}, None
         self.utmos = None
         self.asr, self.wer_results = None, {}
         self.e2v_stats, self.spk_results = {}, {}
         self.mcd_df = self.mcd_kept = None
-        self.configd_cmp = None
         self.paper_df = None
-
-    # ------------------------------------------------------------------------------------------
-    # Setup
-    # ------------------------------------------------------------------------------------------
-
-    def prepare_data(self):
-        section("2 · MELD dataset — pooled train+dev+test with a fresh held-out carve-out")
-        processed = load_meld(self.cfg)
-        train_df, self.holdout_df = split_train_holdout(processed, self.cfg)
-
-        section("2.2 · Class-balanced sample weights + calibrated text->duration model")
-        self.train_df = add_class_weights(train_df)
-        print("Class counts:\n", self.train_df["emotion"].value_counts())
-        print("\nSample weight range:", self.train_df["sample_weight"].min(), "-",
-              self.train_df["sample_weight"].max())
-        fit_duration_model(self.train_df, self.cfg)
-
-    def load_model(self):
-        section("3 · Load the real pretrained AudioDiT-1B")
-        self.model, self.tokenizer, self.original_state = load_pretrained(self.cfg, self.device)
-        if self.cfg.verify_weight_loading:
-            section("3.1 · Weight-loading guard")
-            verify_weight_loading(self.model, self.cfg)
-        self.train_dataset = EmotionalSpeechDataset(self.train_df, self.cfg)
-        print(f"{len(self.train_dataset)} training clips available")
 
     def baseline_sample(self):
         section("4 · Sanity check — baseline generation before any fine-tuning")
@@ -194,10 +146,6 @@ class SenticDiTRun:
         section("16.6 · Speaker self-consistency")
         self.spk_results = speaker.speaker_consistency(self)
 
-    def config_d(self):
-        section("16.7 · Config D — does more distinct data help, at fixed compute?")
-        self.configd_cmp = run_config_d(self)
-
     def write_report(self):
         section("17 · Assembled results for the paper")
         self.paper_df = report.paper_results_table(self)
@@ -225,12 +173,10 @@ class SenticDiTRun:
         self.wer_eval()
         self.emotion2vec_eval()
         self.speaker_eval()
-        self.config_d()
         return self.write_report()
 
 
-def run(cfg: Config):
-    """Convenience wrapper: build a run, execute every stage, return it."""
-    r = SenticDiTRun(cfg)
+def run(cfg):
+    r = V5Run(cfg)
     r.run_all()
     return r
